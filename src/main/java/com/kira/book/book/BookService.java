@@ -1,5 +1,7 @@
 package com.kira.book.book;
 
+import com.kira.book.History.BookTransactionHistory;
+import com.kira.book.History.BookTransactionHistoryRepository;
 import com.kira.book.common.PageResponse;
 import com.kira.book.user.User;
 import jakarta.persistence.EntityNotFoundException;
@@ -18,6 +20,7 @@ import java.util.List;
 public class BookService {
     private final BookRepository bookRepository;
     private final BookMapper bookMapper;
+    private final BookTransactionHistoryRepository bookTransactionHistoryRepository;
     public Integer save(BookRequest request, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         Book book =bookMapper.toBook(request);
@@ -59,5 +62,13 @@ public class BookService {
                 books.isFirst(),
                 books.isLast()
         );
+    }
+
+    public PageResponse<BookResponse> findAllBorrowedBooks(int page, int size, Authentication connectedUser) {
+        User user = (User) connectedUser.getPrincipal();
+        Pageable pageable = PageRequest.of(page, size, Sort.by("created Date").descending());
+        Page<BookTransactionHistory> allBorrowedBooks = bookTransactionHistoryRepository.findAllBorrowedBooks(pageable, user.getId());
+        List<BoroowedBookResponse> bookResponses=allBorrowedBooks.stream().map(bookMapper::toBoroowedBookResponse).toList();
+                return null;
     }
 }
