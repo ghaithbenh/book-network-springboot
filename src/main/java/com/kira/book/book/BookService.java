@@ -157,4 +157,25 @@ public class BookService {
 
         return bookTransactionHistoryRepository.save(bookTransactionHistory).getId();
     }
+
+    public Integer returnBorrowedBook(Integer bookId, Authentication connectedUser) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new EntityNotFoundException("No book found with ID: " + bookId));
+
+        User user = (User) connectedUser.getPrincipal();
+
+        if (Objects.equals(book.getOwner().getId(), user.getId())) {
+            throw new OperationNotPermittedException("You cannot return your own book");
+        }
+
+        // Find the active borrowing transaction for this user and book
+        BookTransactionHistory transaction = bookTransactionHistoryRepository
+                .findByBookIdAndUserId(bookId, user.getId())
+                .orElseThrow(() -> new OperationNotPermittedException("You did not borrow this book"));
+        // Mark the book as returned by the user
+        transaction.setReturned(true);
+        return bookTransactionHistoryRepository.save(transaction).getId();
+
+
+    }
 }
