@@ -3,6 +3,7 @@ package com.kira.book.book;
 import com.kira.book.History.BookTransactionHistory;
 import com.kira.book.History.BookTransactionHistoryRepository;
 import com.kira.book.common.PageResponse;
+import com.kira.book.exception.OperationNotPermittedException;
 import com.kira.book.user.User;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -78,5 +80,53 @@ public class BookService {
                 allBorrowedBooks.isFirst(),
                 allBorrowedBooks.isLast()
         );
+    }
+
+    public PageResponse<BoroowedBookResponse> findAllReturnedBooks(int page, int size, Authentication connectedUser) {
+        User user = (User) connectedUser.getPrincipal();
+        Pageable pageable = PageRequest.of(page, size, Sort.by("created Date").descending());
+        Page<BookTransactionHistory> allBorrowedBooks = bookTransactionHistoryRepository.findAllReturnedBooks(pageable, user.getId());
+        List<BoroowedBookResponse> bookResponses=allBorrowedBooks.stream().map(bookMapper::toBoroowedBookResponse).toList();
+        return new PageResponse<>(
+                bookResponses,
+                allBorrowedBooks.getNumber(),
+                allBorrowedBooks.getSize(),
+                allBorrowedBooks.getTotalElements(),
+                allBorrowedBooks.getTotalPages(),
+                allBorrowedBooks.isFirst(),
+                allBorrowedBooks.isLast()
+        );
+    }
+
+    public Integer updateShareableStatus(Integer bookId, Authentication connectedUser) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new EntityNotFoundException("No book found with ID: " + bookId));
+        User user = (User) connectedUser.getPrincipal();
+        // Check if the user owns the book
+        if (!Objects.equals(book.getOwner().getId(), user.getId())) {
+            throw new OperationNotPermittedException("You cannot update others books shareable status");
+        }
+
+        // Toggle the shareable status
+        book.setShareable(!book.isShareable());
+        bookRepository.save(book);
+
+        return bookId;
+    }
+
+    public Integer updateArchivedStatus(Integer bookId, Authentication connectedUser) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new EntityNotFoundException("No book found with ID: " + bookId));
+        User user = (User) connectedUser.getPrincipal();
+        // Check if the user owns the book
+        if (!Objects.equals(book.getOwner().getId(), user.getId())) {
+            throw new OperationNotPermittedException("You cannot update others books archived status");
+        }
+
+        // Toggle the archived status
+        book.setArchived(!book.isArchived());
+        bookRepository.save(book);
+
+        return bookId;
     }
 }
