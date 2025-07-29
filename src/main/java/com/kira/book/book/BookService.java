@@ -4,6 +4,7 @@ import com.kira.book.History.BookTransactionHistory;
 import com.kira.book.History.BookTransactionHistoryRepository;
 import com.kira.book.common.PageResponse;
 import com.kira.book.exception.OperationNotPermittedException;
+import com.kira.book.file.FileStorageService;
 import com.kira.book.user.User;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Objects;
@@ -23,6 +25,7 @@ public class BookService {
     private final BookRepository bookRepository;
     private final BookMapper bookMapper;
     private final BookTransactionHistoryRepository bookTransactionHistoryRepository;
+    private final FileStorageService fileStorageService;
     public Integer save(BookRequest request, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         Book book =bookMapper.toBook(request);
@@ -176,6 +179,35 @@ public class BookService {
         transaction.setReturned(true);
         return bookTransactionHistoryRepository.save(transaction).getId();
 
+
+    }
+
+    public Integer approveReturnBorrowedBook(Integer bookId, Authentication connectedUser) {
+
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new EntityNotFoundException("No book found with ID: " + bookId));
+
+        User user = (User) connectedUser.getPrincipal();
+
+        if (Objects.equals(book.getOwner().getId(), user.getId())) {
+            throw new OperationNotPermittedException("You cannot return your own book");
+        }
+        BookTransactionHistory transaction = bookTransactionHistoryRepository
+                .findByBookIdOwnerId(bookId, user.getId())
+                .orElseThrow(() -> new OperationNotPermittedException("the book is not returned yet"));
+        transaction.setReturnApproved(true);
+
+
+        return bookTransactionHistoryRepository.save(transaction).getId();
+    }
+
+    public void uploadBookCoverPicture(MultipartFile file, Authentication connectedUser, Integer bookId) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new EntityNotFoundException("No book found with ID: " + bookId));
+        User user = (User) connectedUser.getPrincipal();
+        var bookCover=fileStorageService.saveFile(file,bookId,user.getId());
+        book.setBookCover(bookCover);
+        bookRepository.save(book);
 
     }
 }
