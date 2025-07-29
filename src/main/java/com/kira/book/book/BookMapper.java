@@ -2,6 +2,8 @@ package com.kira.book.book;
 
 
 import com.kira.book.History.BookTransactionHistory;
+
+import com.kira.book.file.FileUtils;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,7 +14,7 @@ public class BookMapper {
 
     public BookResponse toBookResponse( Book book) {
         return BookResponse.builder().id(book.getId()).title(book.getTitle()).authorName(book.getAuthorName()).isbn(book.getIsbn()).synopsis(book.getSynopsis()).rate(book.getRate()).archived(book.isArchived()).shareable(book.isShareable()).owner(book.getOwner().getFullName())
-                //cover
+                .cover(FileUtils.readFileFromLocation(book.getBookCover()))
         .build();
     }
 
